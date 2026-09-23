@@ -1,3 +1,40 @@
+> This is a fork of [benhoyt/inih](https://github.com/benhoyt/inih), with C++ wrapper extensions.
+> Starting with **r30**, each upstream release through **r61** has a corresponding
+> **rNcpp** tag (for example, **r36cpp** for **r36**). These releases include
+> `GetSections()`, `GetFields()`, and safe copying. **r56cpp was the last version
+> compatible with C++98. From r57cpp onward, C++11 or later is required.**
+> Run `sh cpp/tests/run.sh` to build and test the wrapper.
+
+## C++11 wrapper extensions
+
+The wrapper preserves the original spelling of section and field names while
+performing case-insensitive lookups. It owns its data by value: copies are
+independent, and move construction and move assignment transfer that data.
+A moved-from reader may be reassigned or destroyed.
+
+```cpp
+#include "cpp/INIReader.h"
+#include <iostream>
+#include <utility>
+
+int main()
+{
+    INIReader reader("settings.ini");
+    if (reader.ParseError() != 0)
+        return 1;
+
+    INIReader copied = reader;             // Independent copy
+    INIReader moved = std::move(reader);   // Transfer ownership
+
+    for (const auto& section : moved.GetSections()) {
+        std::cout << '[' << section << "]\n";
+        for (const auto& field : moved.GetFields(section)) {
+            std::cout << field << '\n';
+        }
+    }
+}
+```
+
 # inih (INI Not Invented Here)
 
 [![Tests](https://github.com/benhoyt/inih/actions/workflows/tests.yml/badge.svg)](https://github.com/benhoyt/inih/actions/workflows/tests.yml)
