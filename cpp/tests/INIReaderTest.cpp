@@ -19,20 +19,14 @@ int main()
               << reader.GetBoolean("user", "active", true) << "\n";
 
     std::cout<<"Found sections and fields:"<<std::endl;
-    std::set<std::string> sections = reader.GetSections();
-    for(std::set<std::string>::iterator sectionsIt = sections.begin();
-        sectionsIt!=sections.end();
-        sectionsIt++)
+    for (const auto& section : reader.GetSections())
     {
-        std::cout << "  [" << *sectionsIt << "]: ";
-        std::set<std::string> fields = reader.GetFields(*sectionsIt);
-        for(std::set<std::string>::iterator fieldsIt = fields.begin();
-            fieldsIt!=fields.end();
-            fieldsIt++)
+        std::cout << "  [" << section << "]: ";
+        const char* separator = "";
+        for (const auto& field : reader.GetFields(section))
         {
-            if(fieldsIt!=fields.begin())
-                std::cout << ", ";
-            std::cout << *fieldsIt;
+            std::cout << separator << field;
+            separator = ", ";
         }
         std::cout << std::endl;
     }

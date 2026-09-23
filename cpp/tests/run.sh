@@ -14,8 +14,8 @@ fi
 
 "${CC:-cc}" -std=c89 -pedantic-errors -Wall -Wextra -g $sanitize_flags \
     -c ../../ini.c -o "$build_dir/ini.o"
-for test_source in INIReaderTest.cpp INIReaderCopyTest.cpp; do
-    "${CXX:-c++}" -std=c++98 -pedantic-errors -Wall -Wextra -g $sanitize_flags \
+for test_source in INIReaderTest.cpp INIReaderCopyTest.cpp INIReaderMoveTest.cpp INIReaderBehaviorTest.cpp; do
+    "${CXX:-c++}" -std=c++11 -pedantic-errors -Wall -Wextra -g $sanitize_flags \
         ../INIReader.cpp "$test_source" "$build_dir/ini.o" -o "$build_dir/test"
     "$build_dir/test"
 done
