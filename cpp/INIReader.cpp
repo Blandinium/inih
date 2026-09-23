@@ -17,6 +17,14 @@
 
 using std::string;
 
+namespace {
+char LowerCase(unsigned char ch)
+{
+    return static_cast<char>(::tolower(ch));
+}
+}
+
+
 INIReader::INIReader(const string& filename)
 {
     _error = ini_parse(filename.c_str(), ValueHandler, this);
@@ -100,7 +108,7 @@ bool INIReader::GetBoolean(const string& section, const string& name, bool defau
     string valstr = Get(section, name, "");
     // Convert to lower case to make string comparisons case-insensitive
     std::transform(valstr.begin(), valstr.end(), valstr.begin(),
-        [](const unsigned char& ch) { return static_cast<unsigned char>(::tolower(ch)); });
+        LowerCase);
     if (valstr == "true" || valstr == "yes" || valstr == "on" || valstr == "1")
         return true;
     else if (valstr == "false" || valstr == "no" || valstr == "off" || valstr == "0")
@@ -125,12 +133,27 @@ bool INIReader::HasValue(const string& section, const string& name) const
     return _values.count(key);
 }
 
+std::set<std::string> INIReader::GetSections() const
+{
+    return _sections;
+}
+
+std::set<std::string> INIReader::GetFields(std::string section) const
+{
+    string sectionKey = section;
+    std::transform(sectionKey.begin(), sectionKey.end(), sectionKey.begin(), LowerCase);
+    std::map<std::string, std::set<std::string> >::const_iterator fieldSetIt = _fields.find(sectionKey);
+    if(fieldSetIt==_fields.end())
+        return std::set<std::string>();
+    return fieldSetIt->second;
+}
+
 string INIReader::MakeKey(const string& section, const string& name)
 {
     string key = section + "=" + name;
     // Convert to lower case to make section/name lookups case-insensitive
     std::transform(key.begin(), key.end(), key.begin(),
-        [](const unsigned char& ch) { return static_cast<unsigned char>(::tolower(ch)); });
+        LowerCase);
     return key;
 }
 
@@ -144,5 +167,14 @@ int INIReader::ValueHandler(void* user, const char* section, const char* name,
     if (reader->_values[key].size() > 0)
         reader->_values[key] += "\n";
     reader->_values[key] += value ? value : "";
+    // Insert the section in the sections set
+    reader->_sections.insert(section);
+
+    // Add the value to the values set
+    string sectionKey = section;
+    std::transform(sectionKey.begin(), sectionKey.end(), sectionKey.begin(), LowerCase);
+
+    reader->_fields[sectionKey].insert(name);
+
     return 1;
 }
