@@ -3,16 +3,16 @@
 // inih and INIReader are released under the New BSD license (see LICENSE.txt).
 // Go to the project home page for more info:
 //
-// http://code.google.com/p/inih/
+// https://github.com/benhoyt/inih
 
 #ifndef __INIREADER_H__
 #define __INIREADER_H__
 
 #include <map>
+#include <set>
 #include <string>
 
-// Read an INI file into easy-to-access name/value pairs. (Note that I've gone
-// for simplicity here rather than speed, but it should be pretty decent.)
+// Read an INI file into easy-to-access name/value pairs.
 class INIReader
 {
 public:
@@ -42,9 +42,22 @@ public:
     // and valid false values are "false", "no", "off", "0" (not case sensitive).
     bool GetBoolean(std::string section, std::string name, bool default_value);
 
+    // Returns all the section names from the INI file, in alphabetical order, but in the
+    // original casing
+    std::set<std::string> GetSections() const;
+
+    // Returns all the field names from a section in the INI file, in alphabetical order,
+    // but in the original casing. Returns an empty set if the field name is unknown
+    std::set<std::string> GetFields(std::string section) const;
+
+
 private:
     int _error;
     std::map<std::string, std::string> _values;
+    // Because we want to retain the original casing in _fields, but
+    // want lookups to be case-insensitive, we need both _fields and _values
+    std::set<std::string> _sections;
+    std::map<std::string, std::set<std::string> > _fields;
     static std::string MakeKey(std::string section, std::string name);
     static int ValueHandler(void* user, const char* section, const char* name,
                             const char* value);
