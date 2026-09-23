@@ -94,6 +94,21 @@ bool INIReader::HasValue(const string& section, const string& name) const
     return _values.count(key);
 }
 
+std::set<std::string> INIReader::GetSections() const
+{
+    return _sections;
+}
+
+std::set<std::string> INIReader::GetFields(std::string section) const
+{
+    string sectionKey = section;
+    std::transform(sectionKey.begin(), sectionKey.end(), sectionKey.begin(), ::tolower);
+    std::map<std::string, std::set<std::string> >::const_iterator fieldSetIt = _fields.find(sectionKey);
+    if(fieldSetIt==_fields.end())
+        return std::set<std::string>();
+    return fieldSetIt->second;
+}
+
 string INIReader::MakeKey(const string& section, const string& name)
 {
     string key = section + "=" + name;
@@ -112,5 +127,14 @@ int INIReader::ValueHandler(void* user, const char* section, const char* name,
     if (reader->_values[key].size() > 0)
         reader->_values[key] += "\n";
     reader->_values[key] += value ? value : "";
+    // Insert the section in the sections set
+    reader->_sections.insert(section);
+
+    // Add the value to the values set
+    string sectionKey = section;
+    std::transform(sectionKey.begin(), sectionKey.end(), sectionKey.begin(), ::tolower);
+
+    reader->_fields[sectionKey].insert(name);
+
     return 1;
 }
