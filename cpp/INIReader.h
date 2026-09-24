@@ -43,6 +43,15 @@
 class INIReader
 {
 public:
+    // Orders names alphabetically, ignoring case.
+    struct CaseInsensitiveLess
+    {
+        INI_API bool operator()(const std::string& a, const std::string& b) const;
+    };
+
+    // Names that differ only in case count as one; the first spelling is kept.
+    using NameSet = std::set<std::string, CaseInsensitiveLess>;
+
     // Construct INIReader and parse given filename. See ini.h for more info
     // about the parsing.
     INI_API explicit INIReader(const std::string& filename);
@@ -110,21 +119,23 @@ public:
     // Return true if a value exists with the given section and field names.
     INI_API bool HasValue(const std::string& section, const std::string& name) const;
 
-    // Returns all the section names from the INI file, in alphabetical order, but in the
-    // original casing
-    INI_API std::set<std::string> GetSections() const;
+    // Returns all the section names from the INI file, in alphabetical order ignoring
+    // case, spelled as they first appear. Sections without fields are included only
+    // when ini.c is built with INI_CALL_HANDLER_ON_NEW_SECTION=1.
+    INI_API NameSet GetSections() const;
 
-    // Returns all the field names from a section in the INI file, in alphabetical order,
-    // but in the original casing. Returns an empty set if the section is unknown.
-    INI_API std::set<std::string> GetFields(const std::string& section) const;
+    // Returns all the field names from a section in the INI file, in alphabetical order
+    // ignoring case, spelled as they first appear. Returns an empty set if the section
+    // is unknown or has no fields.
+    INI_API NameSet GetFields(const std::string& section) const;
 
 protected:
     int _error;
     std::map<std::string, std::string> _values;
     // Because we want to retain the original casing in _fields, but
     // want lookups to be case-insensitive, we need both _fields and _values
-    std::set<std::string> _sections;
-    std::map<std::string, std::set<std::string>> _fields;
+    NameSet _sections;
+    std::map<std::string, NameSet> _fields;
     static std::string MakeKey(const std::string& section, const std::string& name);
     static int ValueHandler(void* user, const char* section, const char* name,
                             const char* value);

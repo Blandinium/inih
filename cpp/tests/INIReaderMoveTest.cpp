@@ -11,9 +11,10 @@ static_assert(std::is_move_assignable<INIReader>::value, "Reader must support mo
 static void CheckReader(const INIReader& reader)
 {
     assert(reader.ParseError() == 0);
-    assert(reader.GetSections() == (std::set<std::string>{"protocol", "user"}));
-    assert(reader.GetFields("USER") ==
-           (std::set<std::string>{"active", "email", "name", "pi"}));
+    const auto sections = reader.GetSections();
+    assert(sections == (decltype(sections){"protocol", "user"}));
+    const auto fields = reader.GetFields("USER");
+    assert(fields == (decltype(fields){"active", "email", "name", "pi"}));
     assert(reader.Get("USER", "NAME", "missing") == "Bob Smith");
     assert(reader.GetInteger("protocol", "version", -1) == 6);
 }

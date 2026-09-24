@@ -154,12 +154,20 @@ bool INIReader::HasValue(const string& section, const string& name) const
     return _values.count(key);
 }
 
-std::set<std::string> INIReader::GetSections() const
+bool INIReader::CaseInsensitiveLess::operator()(const string& a, const string& b) const
+{
+    return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(),
+        [](unsigned char x, unsigned char y) {
+            return std::tolower(x) < std::tolower(y);
+        });
+}
+
+INIReader::NameSet INIReader::GetSections() const
 {
     return _sections;
 }
 
-std::set<std::string> INIReader::GetFields(const std::string& section) const
+INIReader::NameSet INIReader::GetFields(const std::string& section) const
 {
     const auto fieldSetIt = _fields.find(LowerCase(section));
     if (fieldSetIt == _fields.end())
@@ -175,9 +183,15 @@ string INIReader::MakeKey(const string& section, const string& name)
 int INIReader::ValueHandler(void* user, const char* section, const char* name,
                             const char* value)
 {
+    auto* reader = static_cast<INIReader*>(user);
+
+    // Preserve the original spelling while keeping section lookups case-insensitive.
+    reader->_sections.emplace(section);
+    auto& fields = reader->_fields[LowerCase(section)];
     if (!name)  // Happens when INI_CALL_HANDLER_ON_NEW_SECTION enabled
         return 1;
-    auto* reader = static_cast<INIReader*>(user);
+    fields.emplace(name);
+
     const auto entry = reader->_values.emplace(MakeKey(section, name), value ? value : "");
     if (!entry.second) {
         auto& stored = entry.first->second;
@@ -185,10 +199,6 @@ int INIReader::ValueHandler(void* user, const char* section, const char* name,
             stored += "\n";
         stored += value ? value : "";
     }
-
-    // Preserve the original spelling while keeping section lookups case-insensitive.
-    reader->_sections.emplace(section);
-    reader->_fields[LowerCase(section)].emplace(name);
 
     return 1;
 }
