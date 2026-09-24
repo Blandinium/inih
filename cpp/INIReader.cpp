@@ -17,6 +17,16 @@
 
 using std::string;
 
+namespace {
+string LowerCase(string text)
+{
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return text;
+}
+}
+
 INIReader::INIReader(const string& filename)
 {
     _error = ini_parse(filename.c_str(), ValueHandler, this);
@@ -34,9 +44,8 @@ int INIReader::ParseError() const
 
 string INIReader::Get(const string& section, const string& name, const string& default_value) const
 {
-    string key = MakeKey(section, name);
-    // Use _values.find() here instead of _values.at() to support pre C++11 compilers
-    return _values.count(key) ? _values.find(key)->second : default_value;
+    const auto value = _values.find(MakeKey(section, name));
+    return value != _values.end() ? value->second : default_value;
 }
 
 string INIReader::GetString(const string& section, const string& name, const string& default_value) const
@@ -55,13 +64,13 @@ long INIReader::GetInteger(const string& section, const string& name, long defau
     return end > value ? n : default_value;
 }
 
-INI_API int64_t INIReader::GetInteger64(const string& section, const string& name, int64_t default_value) const
+INI_API std::int64_t INIReader::GetInteger64(const std::string& section, const std::string& name, std::int64_t default_value) const
 {
     string valstr = Get(section, name, "");
     const char* value = valstr.c_str();
     char* end;
     // This parses "1234" (decimal) and also "0x4D2" (hex)
-    int64_t n = strtoll(value, &end, 0);
+    std::int64_t n = strtoll(value, &end, 0);
     return end > value ? n : default_value;
 }
 
@@ -75,13 +84,13 @@ unsigned long INIReader::GetUnsigned(const string& section, const string& name, 
     return end > value ? n : default_value;
 }
 
-INI_API uint64_t INIReader::GetUnsigned64(const string& section, const string& name, uint64_t default_value) const
+INI_API std::uint64_t INIReader::GetUnsigned64(const std::string& section, const std::string& name, std::uint64_t default_value) const
 {
     string valstr = Get(section, name, "");
     const char* value = valstr.c_str();
     char* end;
     // This parses "1234" (decimal) and also "0x4D2" (hex)
-    uint64_t n = strtoull(value, &end, 0);
+    std::uint64_t n = strtoull(value, &end, 0);
     return end > value ? n : default_value;
 }
 
@@ -96,10 +105,7 @@ double INIReader::GetReal(const string& section, const string& name, double defa
 
 bool INIReader::GetBoolean(const string& section, const string& name, bool default_value) const
 {
-    string valstr = Get(section, name, "");
-    // Convert to lower case to make string comparisons case-insensitive
-    std::transform(valstr.begin(), valstr.end(), valstr.begin(),
-        [](const unsigned char& ch) { return static_cast<unsigned char>(::tolower(ch)); });
+    const string valstr = LowerCase(Get(section, name, ""));
     if (valstr == "true" || valstr == "yes" || valstr == "on" || valstr == "1")
         return true;
     else if (valstr == "false" || valstr == "no" || valstr == "off" || valstr == "0")
@@ -135,7 +141,7 @@ std::vector<string> INIReader::Keys(const string& section) const
 bool INIReader::HasSection(const string& section) const
 {
     const string key = MakeKey(section, "");
-    std::map<string, string>::const_iterator pos = _values.lower_bound(key);
+    const auto pos = _values.lower_bound(key);
     if (pos == _values.end())
         return false;
     // Does the key at the lower_bound pos start with "section"?
@@ -148,24 +154,51 @@ bool INIReader::HasValue(const string& section, const string& name) const
     return _values.count(key);
 }
 
+bool INIReader::CaseInsensitiveLess::operator()(const string& a, const string& b) const
+{
+    return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(),
+        [](unsigned char x, unsigned char y) {
+            return std::tolower(x) < std::tolower(y);
+        });
+}
+
+INIReader::NameSet INIReader::GetSections() const
+{
+    return _sections;
+}
+
+INIReader::NameSet INIReader::GetFields(const std::string& section) const
+{
+    const auto fieldSetIt = _fields.find(LowerCase(section));
+    if (fieldSetIt == _fields.end())
+        return {};
+    return fieldSetIt->second;
+}
+
 string INIReader::MakeKey(const string& section, const string& name)
 {
-    string key = section + "=" + name;
-    // Convert to lower case to make section/name lookups case-insensitive
-    std::transform(key.begin(), key.end(), key.begin(),
-        [](const unsigned char& ch) { return static_cast<unsigned char>(::tolower(ch)); });
-    return key;
+    return LowerCase(section + "=" + name);
 }
 
 int INIReader::ValueHandler(void* user, const char* section, const char* name,
                             const char* value)
 {
+    auto* reader = static_cast<INIReader*>(user);
+
+    // Preserve the original spelling while keeping section lookups case-insensitive.
+    reader->_sections.emplace(section);
+    auto& fields = reader->_fields[LowerCase(section)];
     if (!name)  // Happens when INI_CALL_HANDLER_ON_NEW_SECTION enabled
         return 1;
-    INIReader* reader = static_cast<INIReader*>(user);
-    string key = MakeKey(section, name);
-    if (reader->_values[key].size() > 0)
-        reader->_values[key] += "\n";
-    reader->_values[key] += value ? value : "";
+    fields.emplace(name);
+
+    const auto entry = reader->_values.emplace(MakeKey(section, name), value ? value : "");
+    if (!entry.second) {
+        auto& stored = entry.first->second;
+        if (!stored.empty())
+            stored += "\n";
+        stored += value ? value : "";
+    }
+
     return 1;
 }

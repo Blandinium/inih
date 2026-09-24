@@ -139,5 +139,9 @@ if get_option('with_INIReader')
         compile_args : extra_args
     )
 
+    if get_option('tests')
+        subdir('cpp/tests')
+    endif
+
     subdir('examples')
 endif

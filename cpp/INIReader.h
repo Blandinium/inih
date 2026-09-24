@@ -39,11 +39,19 @@
 #endif
 #endif
 
-// Read an INI file into easy-to-access name/value pairs. (Note that I've gone
-// for simplicity here rather than speed, but it should be pretty decent.)
+// Read an INI file into easy-to-access name/value pairs.
 class INIReader
 {
 public:
+    // Orders names alphabetically, ignoring case.
+    struct CaseInsensitiveLess
+    {
+        INI_API bool operator()(const std::string& a, const std::string& b) const;
+    };
+
+    // Names that differ only in case count as one; the first spelling is kept.
+    using NameSet = std::set<std::string, CaseInsensitiveLess>;
+
     // Construct INIReader and parse given filename. See ini.h for more info
     // about the parsing.
     INI_API explicit INIReader(const std::string& filename);
@@ -51,6 +59,13 @@ public:
     // Construct INIReader and parse given buffer. See ini.h for more info
     // about the parsing.
     INI_API explicit INIReader(const char *buffer, size_t buffer_size);
+
+    // Copies own independent data; moves transfer the stored configuration.
+    // A moved-from reader may be reassigned or destroyed.
+    INIReader(const INIReader&) = default;
+    INIReader& operator=(const INIReader&) = default;
+    INIReader(INIReader&&) = default;
+    INIReader& operator=(INIReader&&) = default;
 
     // Return the result of ini_parse(), i.e., 0 on success, line number of
     // first error on parse error, or -1 on file open error.
@@ -71,7 +86,7 @@ public:
 
     // Get a 64-bit integer (int64_t) value from INI file, returning default_value if
     // not found or not a valid integer (decimal "1234", "-1234", or hex "0x4d2").
-    INI_API int64_t GetInteger64(const std::string& section, const std::string& name, int64_t default_value) const;
+    INI_API std::int64_t GetInteger64(const std::string& section, const std::string& name, std::int64_t default_value) const;
 
     // Get an unsigned integer (unsigned long) value from INI file, returning default_value if
     // not found or not a valid unsigned integer (decimal "1234", or hex "0x4d2").
@@ -79,7 +94,7 @@ public:
 
     // Get an unsigned 64-bit integer (uint64_t) value from INI file, returning default_value if
     // not found or not a valid unsigned integer (decimal "1234", or hex "0x4d2").
-    INI_API uint64_t GetUnsigned64(const std::string& section, const std::string& name, uint64_t default_value) const;
+    INI_API std::uint64_t GetUnsigned64(const std::string& section, const std::string& name, std::uint64_t default_value) const;
 
     // Get a real (floating point double) value from INI file, returning
     // default_value if not found or not a valid floating point value
@@ -104,9 +119,23 @@ public:
     // Return true if a value exists with the given section and field names.
     INI_API bool HasValue(const std::string& section, const std::string& name) const;
 
+    // Returns all the section names from the INI file, in alphabetical order ignoring
+    // case, spelled as they first appear. Sections without fields are included only
+    // when ini.c is built with INI_CALL_HANDLER_ON_NEW_SECTION=1.
+    INI_API NameSet GetSections() const;
+
+    // Returns all the field names from a section in the INI file, in alphabetical order
+    // ignoring case, spelled as they first appear. Returns an empty set if the section
+    // is unknown or has no fields.
+    INI_API NameSet GetFields(const std::string& section) const;
+
 protected:
     int _error;
     std::map<std::string, std::string> _values;
+    // Because we want to retain the original casing in _fields, but
+    // want lookups to be case-insensitive, we need both _fields and _values
+    NameSet _sections;
+    std::map<std::string, NameSet> _fields;
     static std::string MakeKey(const std::string& section, const std::string& name);
     static int ValueHandler(void* user, const char* section, const char* name,
                             const char* value);
