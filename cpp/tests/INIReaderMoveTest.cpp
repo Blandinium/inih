@@ -1,4 +1,4 @@
-#include <cassert>
+#include <catch2/catch.hpp>
 #include <type_traits>
 #include <utility>
 #include "../INIReader.h"
@@ -10,13 +10,13 @@ static_assert(std::is_move_assignable<INIReader>::value, "Reader must support mo
 
 static void CheckReader(const INIReader& reader)
 {
-    assert(reader.ParseError() == 0);
+    REQUIRE(reader.ParseError() == 0);
     const auto sections = reader.GetSections();
-    assert(sections == (decltype(sections){"protocol", "user"}));
+    REQUIRE(sections == (decltype(sections){"protocol", "user"}));
     const auto fields = reader.GetFields("USER");
-    assert(fields == (decltype(fields){"active", "email", "name", "pi"}));
-    assert(reader.Get("USER", "NAME", "missing") == "Bob Smith");
-    assert(reader.GetInteger("protocol", "version", -1) == 6);
+    REQUIRE(fields == (decltype(fields){"active", "email", "name", "pi"}));
+    REQUIRE(reader.Get("USER", "NAME", "missing") == "Bob Smith");
+    REQUIRE(reader.GetInteger("protocol", "version", -1) == 6);
 }
 
 static INIReader MoveFromLocal()
@@ -27,12 +27,12 @@ static INIReader MoveFromLocal()
 
     // Reuse the source without assuming its containers are empty after a move.
     source = INIReader("fixtures/replacement.ini");
-    assert(source.ParseError() == 0);
+    REQUIRE(source.ParseError() == 0);
     CheckReader(moved);
     return moved;
 }
 
-int main()
+TEST_CASE("Moves preserve values and independent indexes")
 {
     INIReader constructed = MoveFromLocal();
     CheckReader(constructed);
@@ -43,7 +43,7 @@ int main()
         assigned = std::move(source);
         CheckReader(assigned);
         source = INIReader("fixtures/replacement.ini");
-        assert(source.ParseError() == 0);
+        REQUIRE(source.ParseError() == 0);
     }
     CheckReader(assigned);
 
@@ -55,9 +55,8 @@ int main()
     CheckReader(constructed);
 
     INIReader failed("fixtures/nonexistent.ini");
-    assert(failed.ParseError() == -1);
+    REQUIRE(failed.ParseError() == -1);
     INIReader movedFailure(std::move(failed));
-    assert(movedFailure.ParseError() == -1);
-    assert(movedFailure.GetSections().empty());
-    return 0;
+    REQUIRE(movedFailure.ParseError() == -1);
+    REQUIRE(movedFailure.GetSections().empty());
 }

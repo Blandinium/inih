@@ -3,7 +3,12 @@
 > **rNcpp** tag (for example, **r36cpp** for **r36**). These releases include
 > `GetSections()`, `GetFields()`, and safe copying. **r56cpp was the last version
 > compatible with C++98. From r57cpp onward, C++11 or later is required.**
-> Run `sh cpp/tests/run.sh` to build and test the wrapper.
+> Build and run the C and C++ tests with Meson:
+>
+> ```sh
+> meson setup build -Dcpp_std=c++11
+> meson test -C build --print-errorlogs
+> ```
 
 ## C++11 wrapper extensions
 
